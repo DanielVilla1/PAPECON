@@ -1,0 +1,1052 @@
+================================================================================
+ PAPECON — Pest Control Management System
+ Full Project Documentation
+ Last Updated: February 28, 2026
+================================================================================
+
+
+TABLE OF CONTENTS
+-----------------
+  1. Project Overview
+  2. Technology Stack
+  3. Project Structure
+  4. How to Initialize & Run (Step by Step)
+  5. Environment Variables
+  6. Database Configuration (PostgreSQL)
+  7. Test Accounts (Seeded)
+  8. Role System & Access Paths
+  9. Authentication & Security Flow
+ 10. Backend Modules (File-by-File)
+ 11. Frontend Modules (File-by-File)
+ 12. API Endpoints Reference
+ 13. Changelog (All Changes Made)
+ 14. GCP Deployment Notes
+
+
+================================================================================
+ 1. PROJECT OVERVIEW
+================================================================================
+
+PAPECON is a web-based Pest Control Management System designed for a pest
+control company. It features:
+
+  - 9 role-based dashboards (CEO, Operations, Finance, Technical, HR,
+    Technician, CSR, Client, Developer)
+  - Industry-level authentication (email verification, admin approval,
+    JWT access + refresh tokens, account lockout)
+  - A CEO moderation panel for approving/rejecting user registrations
+  - Placeholder pages for future features (bookings, payments, field reports,
+    analytics, etc.)
+
+The system is built as a decoupled frontend + backend:
+  - Frontend: React.js single-page application
+  - Backend:  FastAPI REST API with PostgreSQL database
+
+
+================================================================================
+ 2. TECHNOLOGY STACK
+================================================================================
+
+FRONTEND:
+  - React 19.2.0         — UI library
+  - Vite 7.3.1           — Build tool / dev server
+  - TailwindCSS 3.4.19   — Utility-first CSS framework
+  - React Router v7       — Client-side routing
+  - Axios                 — HTTP client for API calls
+  - Zustand               — Lightweight state management
+  - jwt-decode            — Decodes JWT tokens on the client
+  - react-hot-toast       — Toast notifications
+  - react-icons           — Icon library
+  - date-fns              — Date formatting utilities
+  - FullCalendar          — Calendar component (for scheduling features)
+  - Plotly.js             — Charting library (for analytics features)
+
+BACKEND:
+  - Python 3.12+
+  - FastAPI               — Web framework
+  - SQLAlchemy            — ORM (Object Relational Mapper)
+  - PostgreSQL            — Production database (via psycopg2-binary driver)
+  - python-jose           — JWT token creation & verification
+  - passlib + bcrypt      — Password hashing (bcrypt scheme)
+  - python-dotenv         — Loads .env files for configuration
+  - Pydantic              — Request/response validation with email support
+  - Uvicorn               — ASGI server
+
+BRAND COLORS (Tailwind config):
+  - Primary:  #1B4332 (dark green)
+  - Accent:   #52B788 (medium green)
+  - Danger:   #D62828 (red)
+  - Warning:  #F4A261 (orange)
+  - Neutral:  #F8F9FA (light bg) / #1C1C1E (dark text)
+
+
+================================================================================
+ 3. PROJECT STRUCTURE
+================================================================================
+
+papecon/
+├── backend/                          # FastAPI backend
+│   ├── .env                          # Local environment variables (gitignored)
+│   ├── .env.example                  # Template for environment variables
+│   ├── main.py                       # FastAPI entry point
+│   ├── config.py                     # Central configuration (loads .env)
+│   ├── database.py                   # SQLAlchemy engine & session
+│   ├── models.py                     # SQLAlchemy User model
+│   ├── schemas.py                    # Pydantic request/response schemas
+│   ├── auth.py                       # Auth helpers (hashing, JWT, lockout)
+│   ├── routes_auth.py                # Auth endpoints (/auth/*)
+│   ├── routes_admin.py               # Admin endpoints (/admin/*)
+│   ├── email_service.py              # Email notifications (console in dev)
+│   ├── seed.py                       # Seeds 9 test accounts
+│   ├── requirements.txt              # Python dependencies
+│   └── README.md                     # Backend quick-start
+│
+├── src/                              # React frontend source
+│   ├── main.jsx                      # React entry point
+│   ├── App.jsx                       # Root component (renders AppRouter)
+│   ├── index.css                     # Tailwind directives + base styles
+│   │
+│   ├── api/
+│   │   ├── axiosInstance.js          # Axios with JWT + silent refresh
+│   │   └── auth.js                   # All API call functions
+│   │
+│   ├── context/
+│   │   └── AuthContext.jsx           # React auth context (login/logout/user)
+│   │
+│   ├── stores/
+│   │   └── authStore.js              # Zustand auth store (alternative)
+│   │
+│   ├── hooks/
+│   │   ├── useAuth.js                # Shorthand for useAuthContext()
+│   │   └── useFetch.js               # Generic GET hook with loading/error
+│   │
+│   ├── routes/
+│   │   ├── AppRouter.jsx             # All 34 routes defined here
+│   │   └── ProtectedRoute.jsx        # Role-guarded route wrapper
+│   │
+│   ├── config/
+│   │   └── roleNav.js                # Sidebar navigation links per role
+│   │
+│   ├── components/
+│   │   └── PlaceholderPage.jsx       # Reusable "Coming Soon" page
+│   │
+│   ├── layouts/
+│   │   ├── RoleLayout.jsx            # Shared sidebar + content layout
+│   │   ├── CEOLayout.jsx             # CEO wrapper
+│   │   ├── OperationsLayout.jsx      # Operations wrapper
+│   │   ├── FinanceLayout.jsx         # Finance wrapper
+│   │   ├── TechnicalLayout.jsx       # Technical wrapper
+│   │   ├── HRLayout.jsx              # HR wrapper
+│   │   ├── TechnicianLayout.jsx      # Technician wrapper
+│   │   ├── CSRLayout.jsx             # CSR wrapper
+│   │   ├── ClientLayout.jsx          # Client wrapper
+│   │   └── DeveloperLayout.jsx       # Developer wrapper
+│   │
+│   ├── utils/
+│   │   └── helpers.js                # formatDate, formatCurrency, capitalize
+│   │
+│   └── pages/
+│       ├── auth/
+│       │   ├── LoginPage.jsx         # Login form + error handling
+│       │   ├── RegisterPage.jsx      # Register + password strength meter
+│       │   └── VerifyEmailPage.jsx   # Email verification landing page
+│       ├── UnauthorizedPage.jsx      # 403 page
+│       ├── ceo/
+│       │   ├── CEODashboard.jsx      # CEO dashboard with stat cards
+│       │   ├── UserManagementPage.jsx # Full user moderation panel
+│       │   ├── ClientManagementPage.jsx # (placeholder)
+│       │   └── AnalyticsPage.jsx     # (placeholder)
+│       ├── operations/
+│       │   ├── OperationsDashboard.jsx
+│       │   ├── InventoryPage.jsx     # (placeholder)
+│       │   ├── ServiceRoutesPage.jsx # (placeholder)
+│       │   └── JobStatusPage.jsx     # (placeholder)
+│       ├── finance/
+│       │   ├── FinanceDashboard.jsx
+│       │   ├── FinancialReportsPage.jsx # (placeholder)
+│       │   ├── PayrollPage.jsx       # (placeholder)
+│       │   ├── PaymentTrackingPage.jsx  # (placeholder)
+│       │   └── BIRCompliancePage.jsx # (placeholder)
+│       ├── technical/
+│       │   ├── TechnicalDashboard.jsx
+│       │   ├── FieldReportsPage.jsx  # (placeholder)
+│       │   ├── OutbreakAlertsPage.jsx # (placeholder)
+│       │   ├── TreatmentProtocolsPage.jsx # (placeholder)
+│       │   └── ServiceQualityPage.jsx # (placeholder)
+│       ├── hr/
+│       │   ├── HRDashboard.jsx
+│       │   ├── EmployeeRosterPage.jsx # (placeholder)
+│       │   ├── TrainingPage.jsx      # (placeholder)
+│       │   └── AttendancePage.jsx    # (placeholder)
+│       ├── technician/
+│       │   ├── TechnicianDashboard.jsx
+│       │   ├── AssignmentsPage.jsx   # (placeholder)
+│       │   └── FieldReportFormPage.jsx # (placeholder)
+│       ├── csr/
+│       │   ├── CSRDashboard.jsx
+│       │   ├── InquiriesPage.jsx     # (placeholder)
+│       │   ├── BookingManagementPage.jsx # (placeholder)
+│       │   ├── QuotationPage.jsx     # (placeholder)
+│       │   └── JobStatusUpdatePage.jsx  # (placeholder)
+│       ├── client/
+│       │   ├── ClientDashboard.jsx
+│       │   ├── NewBookingPage.jsx    # (placeholder)
+│       │   ├── MyBookingsPage.jsx    # (placeholder)
+│       │   ├── ClientJobStatusPage.jsx  # (placeholder)
+│       │   ├── PaymentPage.jsx       # (placeholder)
+│       │   └── FeedbackPage.jsx      # (placeholder)
+│       └── developer/
+│           ├── DeveloperDashboard.jsx
+│           ├── SystemLogsPage.jsx    # (placeholder)
+│           ├── APIHealthPage.jsx     # (placeholder)
+│           ├── ProphetConfigPage.jsx # (placeholder)
+│           └── IntegrationsPage.jsx  # (placeholder)
+│
+├── index.html                        # Vite HTML template
+├── package.json                      # npm dependencies & scripts
+├── vite.config.js                    # Vite configuration
+├── tailwind.config.js                # Tailwind theme & content paths
+├── postcss.config.js                 # PostCSS plugins
+├── eslint.config.js                  # ESLint rules
+└── .gitignore                        # Git ignore rules
+
+
+================================================================================
+ 4. HOW TO INITIALIZE & RUN (Step by Step)
+================================================================================
+
+PREREQUISITES:
+  - Node.js 18+ and npm
+  - Python 3.12+
+  - PostgreSQL 14+ (installed and running)
+
+────────────────────────────────────────
+STEP 1: Clone / Open the project
+────────────────────────────────────────
+
+  Open the "papecon" folder in VS Code or your terminal.
+
+────────────────────────────────────────
+STEP 2: Set up PostgreSQL database
+────────────────────────────────────────
+
+  Open a terminal (or pgAdmin) and create the database:
+
+    createdb papecon
+
+  Or via psql:
+
+    psql -U postgres
+    CREATE DATABASE papecon;
+    \q
+
+  The default connection expects:
+    - Host:     localhost
+    - Port:     5432
+    - User:     postgres
+    - Password: postgres
+    - Database: papecon
+
+  You can customize this in backend/.env (see Section 5).
+
+────────────────────────────────────────
+STEP 3: Set up the Backend
+────────────────────────────────────────
+
+  cd backend
+
+  # (Optional) Create a virtual environment
+  python -m venv venv
+  venv\Scripts\activate        # Windows
+  # source venv/bin/activate   # macOS/Linux
+
+  # Install dependencies
+  pip install -r requirements.txt
+
+  # (Optional) Edit .env file if your PostgreSQL credentials differ
+  # The default .env is pre-configured for local dev.
+
+  # Start the server
+  python main.py
+
+  The server starts at http://localhost:8000
+  On first run it will:
+    1. Create all database tables via SQLAlchemy
+    2. Seed 9 test accounts (see Section 7)
+
+  API docs available at: http://localhost:8000/docs
+
+────────────────────────────────────────
+STEP 4: Set up the Frontend
+────────────────────────────────────────
+
+  # Open a NEW terminal (keep backend running)
+  cd papecon        # project root (not backend/)
+
+  # Install dependencies
+  npm install
+
+  # Start the dev server
+  npm run dev
+
+  The frontend starts at http://localhost:5177
+  Open it in your browser.
+
+────────────────────────────────────────
+STEP 5: Log in with a test account
+────────────────────────────────────────
+
+  Go to http://localhost:5177/login
+  Use any seeded account (see Section 7 below).
+  You will be redirected to the appropriate role dashboard.
+
+
+================================================================================
+ 5. ENVIRONMENT VARIABLES
+================================================================================
+
+The backend reads environment variables from  backend/.env  (loaded by
+python-dotenv). A template is at  backend/.env.example .
+
+  Variable        | Default (dev)                                        | Description
+  ────────────────|──────────────────────────────────────────────────────|──────────────
+  DATABASE_URL    | postgresql://postgres:postgres@localhost:5432/papecon | PostgreSQL connection string
+  SECRET_KEY      | papecon-dev-secret-key-change-in-production           | JWT signing secret
+  FRONTEND_URL    | http://localhost:5177                                 | Used in verification email links
+
+IMPORTANT FOR PRODUCTION:
+  - Generate a strong SECRET_KEY:
+      python -c "import secrets; print(secrets.token_urlsafe(64))"
+  - Set DATABASE_URL to your GCP Cloud SQL connection string
+  - Set FRONTEND_URL to your deployed frontend URL
+
+
+================================================================================
+ 6. DATABASE CONFIGURATION (PostgreSQL)
+================================================================================
+
+DATABASE ENGINE: PostgreSQL (via psycopg2-binary driver)
+
+The database connection is configured in:
+  - backend/config.py   — reads DATABASE_URL from environment
+  - backend/database.py — creates SQLAlchemy engine with pool_pre_ping=True
+
+CURRENT TABLE: "users"
+  Column                     | Type           | Description
+  ───────────────────────────|────────────────|──────────────
+  id                         | Integer (PK)   | Auto-increment primary key
+  name                       | String(255)    | User's full name
+  email                      | String(255)    | Unique email address (indexed)
+  hashed_password            | String(255)    | bcrypt-hashed password
+  role                       | String(50)     | One of 9 valid roles
+  is_email_verified          | Boolean        | Whether email has been verified
+  email_verification_token   | String(255)    | Verification token (nullable)
+  email_verification_expires | DateTime(tz)   | Token expiry timestamp
+  email_verified_at          | DateTime(tz)   | When email was verified
+  is_approved                | Boolean        | Whether admin has approved
+  approved_by                | Integer (FK)   | ID of admin who approved
+  approved_at                | DateTime(tz)   | When account was approved
+  rejected_reason            | Text           | Rejection reason (if rejected)
+  is_active                  | Boolean        | Whether account is active
+  failed_login_attempts      | Integer        | Count of consecutive failures
+  locked_until               | DateTime(tz)   | Lockout expiry (null = unlocked)
+  refresh_token              | String(255)    | Current refresh token (indexed)
+  refresh_token_expires      | DateTime(tz)   | Refresh token expiry
+  last_login_at              | DateTime(tz)   | Last successful login
+  password_changed_at        | DateTime(tz)   | Last password change
+  created_at                 | DateTime(tz)   | Account creation timestamp
+  updated_at                 | DateTime(tz)   | Last modification timestamp
+
+NOTE: All DateTime columns use timezone=True for proper PostgreSQL timezone
+      support. String columns have explicit lengths for PostgreSQL compatibility.
+
+
+================================================================================
+ 7. TEST ACCOUNTS (Seeded)
+================================================================================
+
+On first server start, 9 accounts are automatically seeded into the database.
+All accounts are PRE-VERIFIED and PRE-APPROVED so they can log in immediately.
+
+  Password for ALL test accounts:  Password123!
+
+  #  | Role               | Email                      | Name
+  ───|────────────────────|────────────────────────────|──────────────────────
+  1  | CEO                | ceo@papecon.com            | CEO User
+  2  | Operations Manager | operations@papecon.com     | Operations Manager
+  3  | Finance & Admin    | finance@papecon.com        | Finance Admin Manager
+  4  | Technical          | technical@papecon.com      | Technical Supervisor
+  5  | HR Manager         | hr@papecon.com             | HR Manager
+  6  | Field Technician   | technician@papecon.com     | Field Technician
+  7  | Customer Service   | csr@papecon.com            | Customer Service Rep
+  8  | Client             | client@papecon.com         | Client User
+  9  | Developer          | developer@papecon.com      | Developer User
+
+The seed runs ONLY if the users table is empty. To re-seed:
+  1. Drop all data from the "users" table (or drop and recreate the database)
+  2. Restart the backend server
+
+
+================================================================================
+ 8. ROLE SYSTEM & ACCESS PATHS
+================================================================================
+
+There are 9 roles in the system. Each role has its own layout (sidebar color +
+navigation) and set of pages. Users are redirected to their role dashboard
+after login.
+
+ROLE 1: CEO
+  Login: ceo@papecon.com / Password123!
+  URL:   /ceo/dashboard
+  Pages:
+    /ceo/dashboard   — Overview dashboard with stat cards
+    /ceo/users       — User management & moderation panel (FULLY IMPLEMENTED)
+                       Approve/reject registrations, change roles, lock/unlock
+    /ceo/clients     — Client management (placeholder)
+    /ceo/analytics   — Analytics & charts (placeholder)
+  Special: Only the CEO role can access admin endpoints.
+
+ROLE 2: OPERATIONS MANAGER
+  Login: operations@papecon.com / Password123!
+  URL:   /operations/dashboard
+  Pages:
+    /operations/dashboard  — Operations overview
+    /operations/inventory  — Chemical & tool stock levels (placeholder)
+    /operations/routes     — Technician assignment calendar (placeholder)
+    /operations/jobs       — Job status tracking (placeholder)
+
+ROLE 3: FINANCE & ADMIN MANAGER
+  Login: finance@papecon.com / Password123!
+  URL:   /finance/dashboard
+  Pages:
+    /finance/dashboard   — Finance overview
+    /finance/reports     — Financial reports (placeholder)
+    /finance/payroll     — Payroll computation (placeholder)
+    /finance/payments    — Payment tracking (placeholder)
+    /finance/compliance  — BIR compliance reports (placeholder)
+
+ROLE 4: TECHNICAL SUPERVISOR
+  Login: technical@papecon.com / Password123!
+  URL:   /technical/dashboard
+  Pages:
+    /technical/dashboard       — Technical overview
+    /technical/field-reports   — Technician inspection reports (placeholder)
+    /technical/outbreak-alerts — Prophet model outputs (placeholder)
+    /technical/protocols       — Treatment packages CRUD (placeholder)
+    /technical/quality         — Service quality metrics (placeholder)
+
+ROLE 5: HR MANAGER
+  Login: hr@papecon.com / Password123!
+  URL:   /hr/dashboard
+  Pages:
+    /hr/dashboard   — HR overview
+    /hr/employees   — Employee roster (placeholder)
+    /hr/training    — Training announcements (placeholder)
+    /hr/attendance  — Attendance records (placeholder)
+
+ROLE 6: FIELD TECHNICIAN
+  Login: technician@papecon.com / Password123!
+  URL:   /technician/dashboard
+  Pages:
+    /technician/dashboard     — Technician overview
+    /technician/assignments   — Assigned jobs calendar (placeholder)
+    /technician/field-report  — Submit field report form (placeholder)
+
+ROLE 7: CUSTOMER SERVICE REP (CSR)
+  Login: csr@papecon.com / Password123!
+  URL:   /csr/dashboard
+  Pages:
+    /csr/dashboard   — CSR overview
+    /csr/inquiries   — Client inquiries (placeholder)
+    /csr/bookings    — Booking management (placeholder)
+    /csr/quotation   — Price estimation (placeholder)
+    /csr/job-status  — Job status updates (placeholder)
+
+ROLE 8: CLIENT
+  Login: client@papecon.com / Password123!
+  URL:   /client/dashboard
+  Pages:
+    /client/dashboard  — Client home
+    /client/book       — New service booking (placeholder)
+    /client/bookings   — My bookings list (placeholder)
+    /client/job-status — Real-time job tracking (placeholder)
+    /client/payment    — Invoice & payment (placeholder)
+    /client/feedback   — Post-service rating (placeholder)
+  Special: This is the only role new users can self-register as.
+
+ROLE 9: DEVELOPER
+  Login: developer@papecon.com / Password123!
+  URL:   /developer/dashboard
+  Pages:
+    /developer/dashboard     — Developer overview
+    /developer/logs          — System logs viewer (placeholder)
+    /developer/health        — API health status (placeholder)
+    /developer/prophet       — Prophet model config (placeholder)
+    /developer/integrations  — Third-party integrations (placeholder)
+
+
+================================================================================
+ 9. AUTHENTICATION & SECURITY FLOW
+================================================================================
+
+The system implements industry-level authentication security:
+
+── REGISTRATION FLOW ──
+
+  1. User visits /register
+  2. Fills in name, email, password (client role only — no role selection)
+  3. Password must meet strength requirements:
+     - Minimum 8 characters
+     - At least 1 uppercase letter
+     - At least 1 lowercase letter
+     - At least 1 digit
+     - At least 1 special character (!@#$%^&*... etc)
+  4. Frontend shows real-time password strength meter (5-rule checklist)
+  5. Backend creates account with is_email_verified=False, is_approved=False
+  6. A verification token is generated and printed to server console
+     (in production, replace with real SMTP/SendGrid)
+  7. User sees success screen with "What happens next?" steps
+
+── EMAIL VERIFICATION ──
+
+  8. User clicks the verification link (or opens /verify-email?token=...)
+  9. Backend validates the token and marks is_email_verified=True
+  10. Token is single-use (cleared after verification)
+  11. Expired tokens (>24 hours) are rejected
+  12. User can request a re-send via POST /auth/resend-verification
+
+── ADMIN APPROVAL ──
+
+  13. CEO logs in at /ceo/users to see pending registrations
+  14. CEO can approve or reject each user
+  15. On approve: is_approved=True, user can now log in
+  16. On reject: account is deactivated with a reason
+
+── LOGIN FLOW ──
+
+  17. User enters email + password at /login
+  18. Backend checks in order:
+      a. Does user exist? (401 if not)
+      b. Is account locked? (423 if locked — too many failed attempts)
+      c. Is password correct? (401 if wrong, increments failed_login_attempts)
+      d. Is account active? (403 if deactivated)
+      e. Is email verified? (403 with code "EMAIL_NOT_VERIFIED")
+      f. Is account approved? (403 with code "ACCOUNT_PENDING_APPROVAL")
+  19. On success: returns access_token (15 min) + refresh_token (7 days)
+  20. Frontend stores both tokens in localStorage
+  21. Frontend decodes the access token to get user info (name, role, email)
+  22. User is redirected to /{role}/dashboard
+
+── TOKEN REFRESH ──
+
+  23. When access token expires, Axios interceptor catches 401 responses
+  24. Automatically calls POST /auth/refresh with the refresh token
+  25. Backend rotates the refresh token (old one invalidated, new one issued)
+  26. Request queue: other failed requests wait and retry with new token
+  27. If refresh also fails: user is logged out and redirected to /login
+
+── ACCOUNT LOCKOUT ──
+
+  28. After 5 consecutive failed login attempts: account locked for 15 minutes
+  29. Failed attempt count resets on successful login
+  30. CEO can manually unlock accounts via /ceo/users panel
+
+── CEO MODERATION PANEL ──
+
+  The CEO User Management page (/ceo/users) provides:
+  - Tabbed view: Pending / Approved / Rejected / Unverified / All
+  - Approve button: approves user, sends notification
+  - Reject button: opens modal for rejection reason, deactivates account
+  - Deactivate/Activate toggle
+  - Role change (dropdown modal with all 9 roles)
+  - Unlock button (clears lockout)
+  - Status badges (verified, approved, active, locked)
+
+
+================================================================================
+ 10. BACKEND MODULES (File-by-File)
+================================================================================
+
+backend/config.py
+  Central configuration file. Loads environment variables from .env via
+  python-dotenv. Defines all system constants:
+  - JWT settings (SECRET_KEY, ALGORITHM, token expiry times)
+  - DATABASE_URL (PostgreSQL connection string)
+  - Security settings (lockout threshold, lockout duration, verification expiry)
+  - Role lists (VALID_ROLES, ADMIN_ROLES, SELF_REGISTER_ROLES)
+  - FRONTEND_URL for verification email links
+
+backend/database.py
+  SQLAlchemy setup. Creates the PostgreSQL engine with pool_pre_ping=True
+  for connection health checks. Exports engine, SessionLocal, Base, and
+  the get_db() FastAPI dependency that yields a DB session per request.
+
+backend/models.py
+  Defines the User SQLAlchemy model with all columns (see Section 6).
+  All String columns have explicit lengths (String(255)) and all DateTime
+  columns use timezone=True for PostgreSQL compatibility.
+
+backend/schemas.py
+  Pydantic models for request/response validation:
+  - LoginRequest: email + password
+  - RegisterRequest: name + email + password (with strength validation)
+  - RefreshTokenRequest: refresh_token
+  - TokenPairResponse: access_token + refresh_token + token_type
+  - MessageResponse: generic message
+  - UserOut: basic user info (id, name, email, role)
+  - UserAdminOut: extended view for moderation (includes verification,
+    approval, activity status, timestamps)
+  - ApproveUserRequest, RejectUserRequest, ChangeRoleRequest
+  - AdminUserListResponse: list of UserAdminOut + total count
+  Password strength validation: 8+ chars, uppercase, lowercase, digit,
+  special character. Enforced by _validate_password_strength().
+
+backend/auth.py
+  Authentication utilities:
+  - hash_password(password): bcrypt hash via passlib
+  - verify_password(plain, hashed): bcrypt verification
+  - create_access_token(data): 15-minute JWT with "type":"access"
+  - create_refresh_token(): random 64-byte URL-safe token, 7-day expiry
+  - create_email_verification_token(): random 32-byte token, 24-hour expiry
+  - is_account_locked(user): checks if lockout is still active
+  - record_failed_login(user, db): increments counter, locks if >= 5
+  - reset_failed_login(user, db): clears counter + lockout on success
+  FastAPI dependencies:
+  - get_current_user: decodes Bearer token, returns User object
+  - require_admin: wraps get_current_user, enforces ADMIN_ROLES
+
+backend/routes_auth.py
+  Authentication API endpoints (prefix: /auth):
+  - POST /auth/register      — Create new client account + verification
+  - GET  /auth/verify-email   — Verify email with token from URL
+  - POST /auth/resend-verification — Re-send verification email
+  - POST /auth/login          — Authenticate, return token pair
+  - POST /auth/refresh        — Rotate refresh token, get new access token
+  - POST /auth/logout         — Invalidate refresh token (requires auth)
+  - GET  /auth/me             — Get current user info (requires auth)
+
+backend/routes_admin.py
+  Admin/moderation API endpoints (prefix: /admin, CEO-only):
+  - GET  /admin/users                  — List users with optional status filter
+  - GET  /admin/users/{id}             — Get single user detail
+  - POST /admin/users/{id}/approve     — Approve a pending user
+  - POST /admin/users/{id}/reject      — Reject with reason
+  - POST /admin/users/{id}/deactivate  — Deactivate an account
+  - POST /admin/users/{id}/activate    — Reactivate an account
+  - PUT  /admin/users/{id}/role        — Change user's role
+  - POST /admin/users/{id}/unlock      — Clear lockout
+
+backend/email_service.py
+  Email notification service. In development mode, prints verification
+  links and approval/rejection notifications to the server console.
+  Functions:
+  - send_verification_email(to_email, to_name, token)
+  - send_approval_notification(to_email, to_name, approved, reason)
+  TO DO: Replace with real SMTP / SendGrid / Mailgun for production.
+
+backend/seed.py
+  Seeds the database with 9 test accounts on first run (when users table
+  is empty). All accounts use password "Password123!" and are pre-verified
+  and pre-approved. One account per role.
+
+backend/main.py
+  FastAPI application entry point:
+  1. Creates all database tables (Base.metadata.create_all)
+  2. Seeds default accounts
+  3. Configures CORS for Vite dev server (ports 5173-5177)
+  4. Registers auth and admin routers
+  5. Runs uvicorn server on port 8000 with hot-reload
+
+backend/requirements.txt
+  Python package dependencies:
+  - fastapi, uvicorn[standard], sqlalchemy, psycopg2-binary
+  - python-jose[cryptography], passlib[bcrypt], bcrypt==4.0.1
+  - python-multipart, pydantic[email], python-dotenv
+
+
+================================================================================
+ 11. FRONTEND MODULES (File-by-File)
+================================================================================
+
+── ENTRY POINTS ──
+
+src/main.jsx
+  React entry point. Renders <App /> inside <StrictMode>.
+
+src/App.jsx
+  Root component. Simply renders <AppRouter />.
+
+src/index.css
+  Tailwind CSS directives (@tailwind base/components/utilities) plus
+  base body font-family styling.
+
+── API LAYER ──
+
+src/api/axiosInstance.js
+  Axios instance configured with:
+  - Base URL: http://localhost:8000
+  - Request interceptor: attaches JWT Bearer token from localStorage
+  - Response interceptor: on 401, silently refreshes the access token
+    using the refresh token. Implements request queuing (failedQueue) so
+    multiple concurrent 401s only trigger one refresh. On refresh failure,
+    clears tokens and redirects to /login.
+
+src/api/auth.js
+  Exports API call functions for all auth and admin endpoints:
+  - login, register, verifyEmail, resendVerification, refreshToken, logoutAPI
+  - getMe, getUsers, getUser, approveUser, rejectUser, deactivateUser,
+    activateUser, changeUserRole, unlockUser
+
+── STATE MANAGEMENT ──
+
+src/context/AuthContext.jsx
+  React Context for authentication state. Provides:
+  - user: decoded JWT payload (name, email, role, sub, exp)
+  - token: current access token
+  - refreshToken: current refresh token
+  - role: shorthand for user.role
+  - login(accessToken, refreshToken): stores in localStorage + state
+  - logout(): clears localStorage + state
+  - isAuthenticated: boolean
+  Initialization: reads tokens from localStorage, decodes synchronously.
+  If access token expired but refresh token exists, keeps refresh token
+  for silent refresh.
+
+src/stores/authStore.js
+  Alternative Zustand store (available but AuthContext is primary).
+  Provides setToken() and logout() actions.
+
+── HOOKS ──
+
+src/hooks/useAuth.js
+  Convenience wrapper: exports useAuthContext() as useAuth().
+
+src/hooks/useFetch.js
+  Generic data fetching hook. Takes a URL and options (params, enabled).
+  Returns { data, loading, error, refetch }.
+
+── ROUTING ──
+
+src/routes/AppRouter.jsx
+  Central router with 34 routes:
+  - 4 public routes: /login, /register, /verify-email, /unauthorized
+  - 9 role blocks (each wrapped in ProtectedRoute + RoleLayout)
+  - 2 fallbacks: / and * redirect to /login
+  Every role's routes are guarded by allowedRoles={["rolename"]}.
+
+src/routes/ProtectedRoute.jsx
+  Route wrapper component:
+  - If not authenticated: redirects to /login
+  - If authenticated but wrong role: redirects to /unauthorized
+  - Otherwise: renders <Outlet /> (nested routes)
+
+── CONFIGURATION ──
+
+src/config/roleNav.js
+  Navigation links for each role's sidebar. Object keyed by role name,
+  each containing an array of { label, path } objects.
+
+── LAYOUTS ──
+
+src/layouts/RoleLayout.jsx
+  Shared layout for all roles. Renders:
+  - Left sidebar (64px wide) with role title, nav links, logout button
+  - Main content area with <Outlet />
+  Props: role, title, bgSidebar (Tailwind class for sidebar color)
+
+src/layouts/[Role]Layout.jsx (9 files)
+  Thin wrappers that pass role-specific props to RoleLayout:
+  - CEOLayout:        role="ceo",        bg="bg-primary-dark"
+  - OperationsLayout: role="operations", bg="bg-primary"
+  - FinanceLayout:    role="finance",    bg="bg-primary-light"
+  - TechnicalLayout:  role="technical",  bg="bg-emerald-800"
+  - HRLayout:         role="hr",         bg="bg-teal-800"
+  - TechnicianLayout: role="technician", bg="bg-green-800"
+  - CSRLayout:        role="csr",        bg="bg-sky-800"
+  - ClientLayout:     role="client",     bg="bg-accent"
+  - DeveloperLayout:  role="developer",  bg="bg-gray-800"
+
+── COMPONENTS ──
+
+src/components/PlaceholderPage.jsx
+  Reusable "Coming Soon" page component. Shows a title, description,
+  and a styled card with an icon indicating the feature is under
+  development. Used by all placeholder pages.
+
+── UTILITIES ──
+
+src/utils/helpers.js
+  Utility functions:
+  - formatDate(date)    — "Jan 1, 2026" format
+  - formatDateTime(date) — "Jan 1, 2026, 3:00 PM" format
+  - formatCurrency(amount) — Philippine Peso format (₱1,234.00)
+  - capitalize(str)     — Capitalizes first letter
+
+── PAGES (Fully Implemented) ──
+
+src/pages/auth/LoginPage.jsx
+  Full login form with:
+  - Email + password fields
+  - Error handling with friendly messages for each error type:
+    - 423: "Account locked due to too many failed attempts"
+    - EMAIL_NOT_VERIFIED: link to resend verification
+    - ACCOUNT_PENDING_APPROVAL: "Waiting for admin approval"
+    - Deactivated account: "Contact support"
+    - Generic: "Invalid email or password"
+  - On success: stores tokens, redirects to /{role}/dashboard
+  - Link to /register
+
+src/pages/auth/RegisterPage.jsx
+  Registration form with:
+  - Name, email, password, confirm password fields
+  - Real-time password strength meter (5 checkmarks with color bar)
+  - Client-side validation before submission
+  - On success: shows a styled success screen with "What happens next?"
+    steps (1. Check email → 2. Click verify link → 3. Wait for approval)
+  - Link back to /login
+
+src/pages/auth/VerifyEmailPage.jsx
+  Email verification landing page:
+  - Reads ?token= from URL parameters
+  - Calls verifyEmail API on mount
+  - Shows loading spinner, success message, or error message
+  - Success includes "Your account is pending admin approval" notice
+
+src/pages/ceo/UserManagementPage.jsx
+  Full user moderation panel with:
+  - Filter tabs: Pending / Approved / Rejected / Unverified / All
+  - User table with columns: name, email, role, status badges, actions
+  - Status badges: Verified (green), Unverified (yellow), Approved (blue),
+    Pending (orange), Rejected (red), Active (green), Locked (red)
+  - Action buttons per user:
+    - Approve (for pending users)
+    - Reject (opens modal for reason input)
+    - Deactivate / Activate toggle
+    - Change Role (opens modal with role dropdown)
+    - Unlock (for locked accounts)
+  - Toast notifications for all actions
+  - Auto-refreshes list after any action
+
+src/pages/UnauthorizedPage.jsx
+  Simple 403 page with a "Go back" button.
+
+── PAGES (Dashboards — Minimal) ──
+
+  9 dashboard pages (one per role) with basic welcome text and/or
+  placeholder stat cards. These are functional but contain no real data.
+
+── PAGES (Placeholders — 24 total) ──
+
+  All remaining pages use the PlaceholderPage component with a title and
+  description of what will be built. See Section 3 for the full list.
+
+
+================================================================================
+ 12. API ENDPOINTS REFERENCE
+================================================================================
+
+BASE URL: http://localhost:8000
+
+── PUBLIC ENDPOINTS ──
+
+  POST   /auth/register
+         Body: { name, email, password }
+         Returns: { message }
+
+  GET    /auth/verify-email?token=<token>
+         Returns: { message }
+
+  POST   /auth/resend-verification
+         Body: { email, password }
+         Returns: { message }
+
+  POST   /auth/login
+         Body: { email, password }
+         Returns: { access_token, refresh_token, token_type }
+
+  POST   /auth/refresh
+         Body: { refresh_token }
+         Returns: { access_token, refresh_token, token_type }
+
+── AUTHENTICATED ENDPOINTS ──
+  (Require: Authorization: Bearer <access_token>)
+
+  GET    /auth/me
+         Returns: { id, name, email, role }
+
+  POST   /auth/logout
+         Returns: { message }
+
+── ADMIN ENDPOINTS (CEO only) ──
+  (Require: Authorization: Bearer <ceo_access_token>)
+
+  GET    /admin/users?status=<pending|approved|rejected|unverified|all>
+         Returns: { users: [...], total: int }
+
+  GET    /admin/users/{user_id}
+         Returns: { id, name, email, role, is_email_verified, ... }
+
+  POST   /admin/users/{user_id}/approve
+         Returns: { message }
+
+  POST   /admin/users/{user_id}/reject
+         Body: { reason: "optional reason" }
+         Returns: { message }
+
+  POST   /admin/users/{user_id}/deactivate
+         Returns: { message }
+
+  POST   /admin/users/{user_id}/activate
+         Returns: { message }
+
+  PUT    /admin/users/{user_id}/role
+         Body: { role: "new_role" }
+         Returns: { message }
+
+  POST   /admin/users/{user_id}/unlock
+         Returns: { message }
+
+  GET    /
+         Returns: { message: "PAPECON API is running" }
+
+
+================================================================================
+ 13. CHANGELOG (All Changes Made)
+================================================================================
+
+PHASE 1 — Project Scaffolding
+  - Initialized Vite + React project (npm create vite@latest papecon)
+  - Installed TailwindCSS v3 with PostCSS and Autoprefixer
+  - Configured tailwind.config.js with brand colors
+  - Installed npm dependencies: react-router-dom, axios, zustand, jwt-decode,
+    @fullcalendar/react, @fullcalendar/daygrid, @fullcalendar/timegrid,
+    @fullcalendar/interaction, react-plotly.js, plotly.js, react-hot-toast,
+    react-icons, date-fns
+  - Created initial folder structure (api/, context/, hooks/, stores/,
+    routes/, layouts/, config/, components/, utils/, pages/)
+
+PHASE 2 — Auth & Routing Setup
+  - Created axiosInstance.js with JWT Bearer token interceptor
+  - Created AuthContext.jsx with JWT decode and login/logout
+  - Created useAuth.js and useFetch.js hooks
+  - Created authStore.js (Zustand)
+  - Created ProtectedRoute.jsx with role guard
+  - Created AppRouter.jsx with initial 3 roles
+  - Created LoginPage.jsx and RegisterPage.jsx (basic)
+  - Created helpers.js utility functions
+
+PHASE 3 — Auth Bug Fix
+  - Fixed redirect loop: changed AuthContext from async useEffect token
+    decode to synchronous getInitialAuth() in useState initializer
+
+PHASE 4 — 9-Role Expansion
+  - Expanded from 3 to 9 roles: CEO, Operations, Finance, Technical, HR,
+    Technician, CSR, Client, Developer
+  - Created RoleLayout.jsx (shared sidebar + content layout)
+  - Created roleNav.js config with navigation links per role
+  - Created 9 layout wrapper components (CEOLayout, OperationsLayout, etc.)
+  - Created 9 dashboard page stubs
+  - Rewrote AppRouter.jsx for all 9 roles
+  - Updated tailwind.config.js with brand colors
+
+PHASE 5 — FastAPI Backend
+  - Created full FastAPI backend with SQLAlchemy
+  - Created User model with basic fields
+  - Created JWT auth (access tokens only, initially)
+  - Created login/register/me endpoints
+  - Set up CORS middleware for Vite dev server
+  - Seeded 9 test accounts (one per role)
+  - Fixed bcrypt 5.0.0 incompatibility — downgraded to bcrypt==4.0.1
+
+PHASE 6 — Placeholder Pages
+  - Created PlaceholderPage.jsx reusable component
+  - Created 24 placeholder pages for all sidebar navigation items
+  - Wired all routes in AppRouter.jsx to fix sidebar links redirecting
+    to login (missing Route entries)
+
+PHASE 7 — Industry-Level Auth Security
+  Backend enhancements:
+  - Enhanced User model: added email verification fields (token, expires,
+    verified_at), admin approval fields (is_approved, approved_by,
+    approved_at, rejected_reason), account lockout fields (failed_login_attempts,
+    locked_until), refresh token fields, timestamps
+  - Added password strength validation in Pydantic schemas (8+ chars,
+    upper, lower, digit, special char)
+  - Created email verification token system (24-hour expiry)
+  - Created refresh token system with rotation (7-day expiry)
+  - Implemented account lockout after 5 failed attempts (15 min cooldown)
+  - Created admin-only endpoints for user moderation (approve, reject,
+    deactivate, activate, change role, unlock)
+  - Created email_service.py (console-printed in dev mode)
+  - Fixed JWT sub claim: changed from int to str(user.id) to fix decoding
+  - Updated seed.py: password changed to "Password123!" (meets strength
+    policy), all seed accounts pre-verified + pre-approved
+  Frontend enhancements:
+  - RegisterPage: password strength meter (5-rule checklist with color bar),
+    removed role selection (always "client"), success screen
+  - VerifyEmailPage: new page for email verification flow
+  - LoginPage: friendly error messages for locked, unverified, pending,
+    deactivated accounts
+  - axiosInstance.js: silent refresh token interceptor with request queue
+  - AuthContext.jsx: dual token storage (access + refresh)
+  - auth.js: added all admin API functions
+  - UserManagementPage.jsx: full moderation panel replacing placeholder
+  - AppRouter.jsx: added /verify-email public route
+
+PHASE 8 — PostgreSQL Migration (for GCP deployment)
+  - Replaced SQLite with PostgreSQL (psycopg2-binary driver)
+  - Added python-dotenv for .env file support
+  - Updated config.py: loads DATABASE_URL from environment variable
+  - Updated database.py: removed SQLite check_same_thread, added pool_pre_ping
+  - Updated models.py: explicit String lengths (String(255)), DateTime(timezone=True)
+    for proper PostgreSQL type support, Text for rejected_reason
+  - Created backend/.env (local dev config, gitignored)
+  - Created backend/.env.example (template for production)
+  - Updated requirements.txt: added psycopg2-binary, python-dotenv, pinned
+    bcrypt==4.0.1
+  - Updated .gitignore: added backend/.env, __pycache__/, *.db, *.pyc
+
+
+================================================================================
+ 14. GCP DEPLOYMENT NOTES
+================================================================================
+
+When deploying to Google Cloud Platform:
+
+BACKEND (Cloud Run / App Engine / GCE):
+  1. Set environment variables (not .env file):
+     - DATABASE_URL=postgresql://USER:PASS@/papecon?host=/cloudsql/PROJECT:REGION:INSTANCE
+     - SECRET_KEY=<strong-random-string>
+     - FRONTEND_URL=https://your-frontend-domain.com
+
+  2. If using Cloud SQL, enable the Cloud SQL Auth Proxy or use
+     unix socket connections.
+
+  3. Update CORS origins in main.py to include your production frontend URL.
+
+  4. Replace email_service.py console output with real SMTP or a service
+     like SendGrid, Mailgun, or Google Workspace SMTP.
+
+  5. Install dependencies:
+     pip install -r requirements.txt
+
+  6. Run with gunicorn for production:
+     gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8080
+
+FRONTEND (Firebase Hosting / Cloud Storage + CDN / Cloud Run):
+  1. Build the production bundle:
+     npm run build
+
+  2. Output is in the dist/ folder — deploy to your static hosting.
+
+  3. Update src/api/axiosInstance.js base URL to your production API URL
+     (or use environment variables via Vite's import.meta.env).
+
+DATABASE (Cloud SQL):
+  1. Create a Cloud SQL PostgreSQL instance.
+  2. Create the "papecon" database.
+  3. The backend will auto-create tables and seed on first start.
+
+================================================================================
+ END OF DOCUMENTATION
+================================================================================
