@@ -14,3 +14,15 @@ The React Compiler is not enabled on this template because of its impact on dev 
 ## Expanding the ESLint configuration
 
 If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+
+## Google Maps Address Selection (Bookings)
+
+Booking address selection now supports Google Maps autocomplete + map click selection.
+
+- Local dev: set `VITE_GOOGLE_MAPS_API_KEY` in a root `.env` file.
+- Docker: set `VITE_GOOGLE_MAPS_API_KEY` in root `.env` (or `.env.docker` copied to `.env`) before `docker compose up --build`.
+
+Required Google APIs for the key:
+
+- Maps JavaScript API
+- Places API

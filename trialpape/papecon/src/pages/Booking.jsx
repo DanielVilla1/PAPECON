@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Autocomplete, GoogleMap, Marker, useJsApiLoader } from "@react-google-maps/api";
 import {
     getSlotAvailability,
     getMyBookings,
@@ -7,6 +8,113 @@ import {
     cancelBooking,
 } from "../api/booking";
 
+const CANCELLATION_REASONS = [
+    { value: "schedule_conflict", label: "Schedule conflict" },
+    { value: "price_concern", label: "Price concern" },
+    { value: "service_no_longer_needed", label: "Service no longer needed" },
+    { value: "booked_by_mistake", label: "Booked by mistake" },
+    { value: "location_unavailable", label: "Location unavailable" },
+    { value: "other", label: "Other" },
+];
+
+const MAP_LIBRARIES = ["places"];
+const DEFAULT_MAP_CENTER = { lat: 14.5995, lng: 120.9842 };
+const RUNTIME_MAPS_KEY_STORAGE = "PAPECON_GOOGLE_MAPS_API_KEY";
+
+function GoogleAddressPicker({ address, onAddressChange, apiKey }) {
+    const { isLoaded, loadError } = useJsApiLoader({
+        id: `booking-address-map-script-${(apiKey || "none").slice(-6)}`,
+        googleMapsApiKey: apiKey,
+        libraries: MAP_LIBRARIES,
+    });
+
+    const [autocomplete, setAutocomplete] = useState(null);
+    const [mapCenter, setMapCenter] = useState(DEFAULT_MAP_CENTER);
+    const [markerPosition, setMarkerPosition] = useState(null);
+
+    const updateAddressFromCoordinates = (lat, lng) => {
+        if (!window.google?.maps) return;
+        const geocoder = new window.google.maps.Geocoder();
+        geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+            if (status === "OK" && results?.[0]?.formatted_address) {
+                onAddressChange(results[0].formatted_address);
+            }
+        });
+    };
+
+    const handlePlaceChanged = () => {
+        if (!autocomplete) return;
+        const place = autocomplete.getPlace();
+        if (place?.formatted_address) {
+            onAddressChange(place.formatted_address);
+        }
+        if (place?.geometry?.location) {
+            const nextPosition = {
+                lat: place.geometry.location.lat(),
+                lng: place.geometry.location.lng(),
+            };
+            setMapCenter(nextPosition);
+            setMarkerPosition(nextPosition);
+        }
+    };
+
+    const handleMapClick = (event) => {
+        const lat = event.latLng?.lat();
+        const lng = event.latLng?.lng();
+        if (typeof lat !== "number" || typeof lng !== "number") return;
+
+        const selectedPosition = { lat, lng };
+        setMapCenter(selectedPosition);
+        setMarkerPosition(selectedPosition);
+        updateAddressFromCoordinates(lat, lng);
+    };
+
+    if (loadError) {
+        return (
+            <div className="space-y-2">
+                <textarea
+                    required
+                    rows={2}
+                    value={address}
+                    onChange={(e) => onAddressChange(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary w-full"
+                    placeholder="Enter service address"
+                />
+                <p className="text-amber-700 text-xs">Google Maps could not be loaded. You can still enter the address manually.</p>
+            </div>
+        );
+    }
+
+    if (!isLoaded) {
+        return <p className="text-gray-500 text-sm">Loading Google Maps...</p>;
+    }
+
+    return (
+        <div className="space-y-2">
+            <Autocomplete onLoad={setAutocomplete} onPlaceChanged={handlePlaceChanged}>
+                <input
+                    required
+                    value={address}
+                    onChange={(e) => onAddressChange(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary w-full"
+                    placeholder="Search address via Google Maps"
+                />
+            </Autocomplete>
+
+            <GoogleMap
+                mapContainerStyle={{ width: "100%", height: "220px", borderRadius: "8px" }}
+                center={mapCenter}
+                zoom={markerPosition ? 16 : 12}
+                onClick={handleMapClick}
+                options={{ streetViewControl: false, mapTypeControl: false, fullscreenControl: false }}
+            >
+                {markerPosition && <Marker position={markerPosition} />}
+            </GoogleMap>
+            <p className="text-gray-500 text-xs">Tip: search an address or click on the map to auto-fill the booking address.</p>
+        </div>
+    );
+}
+
 function todayISO() {
     const now = new Date();
     const tzOffset = now.getTimezoneOffset() * 60000;
@@ -14,20 +122,34 @@ function todayISO() {
 }
 
 function StatusBadge({ status }) {
+    const normalizedStatus = status === "treatment_done" ? "treatment_ongoing" : status === "done" ? "completed" : status;
     const map = {
         pending: "bg-yellow-100 text-yellow-800",
         confirmed: "bg-green-100 text-green-800",
         cancelled: "bg-red-100 text-red-800",
         assigned: "bg-blue-100 text-blue-800",
         inspection_logged: "bg-purple-100 text-purple-800",
+        treatment_ongoing: "bg-indigo-100 text-indigo-800",
         treatment_done: "bg-indigo-100 text-indigo-800",
         done: "bg-gray-200 text-gray-800",
         completed: "bg-emerald-100 text-emerald-800",
     };
 
+    const labels = {
+        pending: "Pending",
+        confirmed: "Confirmed",
+        cancelled: "Cancelled",
+        assigned: "Assigned",
+        inspection_logged: "Inspection Logged",
+        treatment_ongoing: "Treatment Ongoing",
+        treatment_done: "Treatment Ongoing",
+        done: "Completed",
+        completed: "Completed",
+    };
+
     return (
-        <span className={`px-2 py-1 rounded text-xs font-semibold ${map[status] || "bg-gray-100 text-gray-700"}`}>
-            {status}
+        <span className={`px-2 py-1 rounded text-xs font-semibold ${map[normalizedStatus] || "bg-gray-100 text-gray-700"}`}>
+            {labels[normalizedStatus] || normalizedStatus}
         </span>
     );
 }
@@ -54,6 +176,18 @@ export default function BookingPage({ view = "all" }) {
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
     const [serviceUnavailable, setServiceUnavailable] = useState(false);
+    const [cancelTarget, setCancelTarget] = useState(null);
+    const [cancelReasonCode, setCancelReasonCode] = useState("schedule_conflict");
+    const [cancelReasonDetails, setCancelReasonDetails] = useState("");
+    const [cancelSaving, setCancelSaving] = useState(false);
+    const [googleMapsApiKeyInput, setGoogleMapsApiKeyInput] = useState("");
+    const [googleMapsApiKey, setGoogleMapsApiKey] = useState(() => {
+        const buildTimeKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+        if (buildTimeKey) return buildTimeKey;
+        if (typeof window === "undefined") return "";
+        return window.localStorage.getItem(RUNTIME_MAPS_KEY_STORAGE) || "";
+    });
+    const hasGoogleMapsKey = Boolean(googleMapsApiKey);
 
     const openModal = !!selectedSlot;
 
@@ -182,16 +316,52 @@ export default function BookingPage({ view = "all" }) {
         }
     };
 
-    const handleCancel = async (bookingId) => {
+    const openCancelModal = (booking) => {
+        setCancelTarget(booking);
+        setCancelReasonCode("schedule_conflict");
+        setCancelReasonDetails("");
+        setError("");
+    };
+
+    const closeCancelModal = () => {
+        setCancelTarget(null);
+        setCancelReasonCode("schedule_conflict");
+        setCancelReasonDetails("");
+    };
+
+    const handleCancel = async () => {
+        if (!cancelTarget) return;
         setError("");
         setSuccess("");
+        setCancelSaving(true);
         try {
-            await cancelBooking(bookingId);
+            await cancelBooking(cancelTarget.id, {
+                reason_code: cancelReasonCode,
+                reason_details: cancelReasonDetails?.trim() || null,
+            });
             setSuccess("Booking cancelled.");
             await loadBookings();
+            closeCancelModal();
         } catch (err) {
             setError(getErrorMessage(err, "Failed to cancel booking."));
+        } finally {
+            setCancelSaving(false);
         }
+    };
+
+    const enableGoogleMaps = () => {
+        const nextKey = googleMapsApiKeyInput.trim();
+        if (!nextKey) {
+            setError("Please enter a valid Google Maps API key.");
+            return;
+        }
+
+        setGoogleMapsApiKey(nextKey);
+        if (typeof window !== "undefined") {
+            window.localStorage.setItem(RUNTIME_MAPS_KEY_STORAGE, nextKey);
+        }
+        setError("");
+        setSuccess("Google Maps address selector enabled for this browser.");
     };
 
     return (
@@ -305,6 +475,7 @@ export default function BookingPage({ view = "all" }) {
                                                     {booking.pest_type} · {booking.property_type}
                                                 </p>
                                                 <p className="text-gray-600 text-sm">{booking.address}</p>
+                                                <p className="text-gray-600 text-sm">Appointment Type: {booking.appointment_type || "inspection"}</p>
                                                 <p className="mt-1 text-gray-600 text-sm">
                                                     Assigned Technician: {booking.assigned_technician_name || "Not yet assigned"}
                                                 </p>
@@ -331,7 +502,7 @@ export default function BookingPage({ view = "all" }) {
                                                     )}
                                                     <button
                                                         type="button"
-                                                        onClick={() => handleCancel(booking.id)}
+                                                        onClick={() => openCancelModal(booking)}
                                                         className="bg-red-600 hover:bg-red-700 px-3 py-2 rounded text-white text-sm"
                                                     >
                                                         Cancel
@@ -364,6 +535,7 @@ export default function BookingPage({ view = "all" }) {
                                                     {booking.pest_type} · {booking.property_type}
                                                 </p>
                                                 <p className="text-gray-600 text-sm">{booking.address}</p>
+                                                <p className="text-gray-600 text-sm">Appointment Type: {booking.appointment_type || "inspection"}</p>
                                                 <p className="mt-1 text-gray-600 text-sm">
                                                     Assigned Technician: {booking.assigned_technician_name || "Not yet assigned"}
                                                 </p>
@@ -411,13 +583,47 @@ export default function BookingPage({ view = "all" }) {
 
                             <div>
                                 <label className="block mb-1 font-medium text-gray-700 text-sm">Address</label>
-                                <textarea
-                                    required
-                                    rows={2}
-                                    value={form.address}
-                                    onChange={(e) => setForm((prev) => ({ ...prev, address: e.target.value }))}
-                                    className="px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary w-full"
-                                />
+                                {hasGoogleMapsKey ? (
+                                    <GoogleAddressPicker
+                                        address={form.address}
+                                        apiKey={googleMapsApiKey}
+                                        onAddressChange={(nextAddress) =>
+                                            setForm((prev) => ({ ...prev, address: nextAddress }))
+                                        }
+                                    />
+                                ) : (
+                                    <div className="space-y-2">
+                                        <textarea
+                                            required
+                                            rows={2}
+                                            value={form.address}
+                                            onChange={(e) => setForm((prev) => ({ ...prev, address: e.target.value }))}
+                                            className="px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary w-full"
+                                        />
+                                        <p className="text-amber-700 text-xs">
+                                            Google Maps API key is not configured. Paste your browser key below to enable address selection now.
+                                        </p>
+                                        <div className="flex sm:flex-row flex-col items-stretch sm:items-end gap-2">
+                                            <div className="flex-1">
+                                                <label className="block mb-1 text-gray-600 text-xs">Google Maps API Key</label>
+                                                <input
+                                                    type="text"
+                                                    value={googleMapsApiKeyInput}
+                                                    onChange={(e) => setGoogleMapsApiKeyInput(e.target.value)}
+                                                    className="px-3 py-2 border border-gray-300 rounded w-full"
+                                                    placeholder="Paste browser key with Maps JavaScript API + Places API"
+                                                />
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={enableGoogleMaps}
+                                                className="bg-primary hover:bg-primary/90 px-4 py-2 rounded text-white"
+                                            >
+                                                Enable Maps
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             <div>
@@ -447,6 +653,61 @@ export default function BookingPage({ view = "all" }) {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {cancelTarget && (
+                <div className="z-50 fixed inset-0 flex justify-center items-center bg-black/40 p-4">
+                    <div className="bg-white shadow-lg p-6 rounded-lg w-full max-w-lg">
+                        <h3 className="mb-2 font-bold text-neutral-900 text-xl">Cancel Booking</h3>
+                        <p className="mb-4 text-gray-600 text-sm">
+                            Please select a cancellation reason for <span className="font-semibold">{cancelTarget.service_date} · {cancelTarget.slot}</span>.
+                        </p>
+
+                        <div className="space-y-3">
+                            <div>
+                                <label className="block mb-1 font-medium text-gray-700 text-sm">Reason</label>
+                                <select
+                                    value={cancelReasonCode}
+                                    onChange={(e) => setCancelReasonCode(e.target.value)}
+                                    className="px-3 py-2 border border-gray-300 rounded w-full"
+                                >
+                                    {CANCELLATION_REASONS.map((reason) => (
+                                        <option key={reason.value} value={reason.value}>{reason.label}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block mb-1 font-medium text-gray-700 text-sm">Additional Details (optional)</label>
+                                <textarea
+                                    rows={3}
+                                    value={cancelReasonDetails}
+                                    onChange={(e) => setCancelReasonDetails(e.target.value)}
+                                    className="px-3 py-2 border border-gray-300 rounded w-full"
+                                    placeholder="Add brief details for the cancellation..."
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-2 mt-4">
+                            <button
+                                type="button"
+                                onClick={closeCancelModal}
+                                className="hover:bg-gray-50 px-4 py-2 border border-gray-300 rounded text-gray-700"
+                            >
+                                Keep Booking
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleCancel}
+                                disabled={cancelSaving}
+                                className="bg-red-600 hover:bg-red-700 disabled:opacity-60 px-4 py-2 rounded text-white"
+                            >
+                                {cancelSaving ? "Cancelling..." : "Confirm Cancel"}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

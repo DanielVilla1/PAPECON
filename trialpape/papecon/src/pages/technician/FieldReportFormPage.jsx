@@ -2,17 +2,34 @@ import { useEffect, useMemo, useState } from "react";
 import { getMyAssignments, logInitialFindings } from "../../api/technician";
 
 function StatusBadge({ status }) {
+    const normalizedStatus = status === "treatment_done" ? "treatment_ongoing" : status === "done" ? "completed" : status;
     const map = {
+        pending: "bg-yellow-100 text-yellow-800",
+        confirmed: "bg-green-100 text-green-800",
+        cancelled: "bg-red-100 text-red-800",
         assigned: "bg-blue-100 text-blue-800",
         inspection_logged: "bg-purple-100 text-purple-800",
+        treatment_ongoing: "bg-indigo-100 text-indigo-800",
         treatment_done: "bg-indigo-100 text-indigo-800",
         done: "bg-gray-200 text-gray-800",
         completed: "bg-emerald-100 text-emerald-800",
     };
 
+    const labels = {
+        pending: "Pending",
+        confirmed: "Confirmed",
+        cancelled: "Cancelled",
+        assigned: "Assigned",
+        inspection_logged: "Inspection Logged",
+        treatment_ongoing: "Treatment Ongoing",
+        treatment_done: "Treatment Ongoing",
+        done: "Completed",
+        completed: "Completed",
+    };
+
     return (
-        <span className={`px-2 py-1 rounded text-xs font-semibold ${map[status] || "bg-gray-100 text-gray-700"}`}>
-            {status || "assigned"}
+        <span className={`px-2 py-1 rounded text-xs font-semibold ${map[normalizedStatus] || "bg-gray-100 text-gray-700"}`}>
+            {labels[normalizedStatus] || "Assigned"}
         </span>
     );
 }
@@ -24,8 +41,19 @@ export default function FieldReportFormPage() {
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
 
+    const normalizeStatus = (status) => {
+        if (status === "treatment_done") return "treatment_ongoing";
+        if (status === "done") return "completed";
+        return status;
+    };
+
     const activeForInspection = useMemo(
-        () => jobs.filter((job) => !["done", "completed"].includes(job.assignment_status || "assigned")),
+        () => jobs.filter((job) => {
+            const bookingStatus = normalizeStatus(job.status);
+            const assignmentStatus = normalizeStatus(job.assignment_status || "assigned");
+            return !["cancelled", "done", "completed"].includes(bookingStatus)
+                && !["cancelled", "done", "completed"].includes(assignmentStatus);
+        }),
         [jobs]
     );
 
@@ -110,9 +138,13 @@ export default function FieldReportFormPage() {
                                     <p className="font-semibold text-neutral-900">
                                         {job.service_date} · {job.slot}
                                     </p>
-                                    <StatusBadge status={job.assignment_status} />
+                                    <div className="flex gap-2">
+                                        <StatusBadge status={job.status} />
+                                        <StatusBadge status={job.assignment_status} />
+                                    </div>
                                 </div>
                                 <p className="mt-1 text-gray-600 text-sm">Location: {job.address}</p>
+                                <p className="text-gray-600 text-sm">Appointment Type: {job.appointment_type || "inspection"}</p>
                                 <textarea
                                     rows={3}
                                     value={findingsByBooking[job.id] || ""}
@@ -145,10 +177,14 @@ export default function FieldReportFormPage() {
                                     <p className="font-semibold text-neutral-900">
                                         {job.service_date} · {job.slot}
                                     </p>
-                                    <StatusBadge status={job.assignment_status} />
+                                    <div className="flex gap-2">
+                                        <StatusBadge status={job.status} />
+                                        <StatusBadge status={job.assignment_status} />
+                                    </div>
                                 </div>
                                 <p className="mt-1 text-gray-600 text-sm">Location: {job.address}</p>
                                 <p className="text-gray-600 text-sm">Service: {job.pest_type} · {job.property_type}</p>
+                                <p className="text-gray-600 text-sm">Appointment Type: {job.appointment_type || "inspection"}</p>
                                 {job.initial_findings && <p className="mt-1 text-gray-600 text-sm">Findings: {job.initial_findings}</p>}
                             </div>
                         ))}

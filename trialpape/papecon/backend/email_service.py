@@ -165,3 +165,50 @@ def send_approval_notification(to_email: str, to_name: str, approved: bool, reas
         """
 
     _send_email(to_email, subject, html_body, text_body)
+
+
+def send_booking_schedule_update(
+    to_email: str,
+    to_name: str,
+    service_date: str,
+    slot: str,
+    appointment_type: str,
+) -> None:
+    subject = "PAPECON booking schedule updated"
+
+    readable_type = "Treatment" if appointment_type == "treatment" else "Inspection"
+
+    text_body = (
+        f"Hi {to_name},\n\n"
+        f"Your booking schedule has been updated.\n"
+        f"Appointment Type: {readable_type}\n"
+        f"Date: {service_date}\n"
+        f"Time Slot: {slot}\n\n"
+        f"You can track progress in your Client Portal job status page.\n\n"
+        f"— The PAPECON Team"
+    )
+
+    html_body = f"""
+    <div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;\">
+        <div style=\"background-color: #1B4332; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;\">
+            <h1 style=\"color: #ffffff; margin: 0; font-size: 24px;\">PAPECON</h1>
+            <p style=\"color: #52B788; margin: 5px 0 0 0; font-size: 14px;\">Pest Control Management System</p>
+        </div>
+        <div style=\"background-color: #ffffff; padding: 30px; border: 1px solid #e0e0e0;\">
+            <h2 style=\"color: #1B4332; margin-top: 0;\">Booking Schedule Update</h2>
+            <p style=\"color: #333; font-size: 16px;\">Hi {to_name},</p>
+            <p style=\"color: #333; font-size: 16px;\">Your booking schedule has been updated with the following details:</p>
+            <div style=\"background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px; margin: 18px 0;\">
+                <p style=\"margin: 0 0 8px 0; color: #111827;\"><strong>Appointment Type:</strong> {readable_type}</p>
+                <p style=\"margin: 0 0 8px 0; color: #111827;\"><strong>Date:</strong> {service_date}</p>
+                <p style=\"margin: 0; color: #111827;\"><strong>Time Slot:</strong> {slot}</p>
+            </div>
+            <p style=\"color: #333; font-size: 14px;\">You can track progress in your Client Portal Job Status page.</p>
+        </div>
+        <div style=\"background-color: #f8f9fa; padding: 15px; border-radius: 0 0 8px 8px; text-align: center; border: 1px solid #e0e0e0; border-top: none;\">
+            <p style=\"color: #999; font-size: 12px; margin: 0;\">&copy; PAPECON Pest Control Management System</p>
+        </div>
+    </div>
+    """
+
+    _send_email(to_email, subject, html_body, text_body)

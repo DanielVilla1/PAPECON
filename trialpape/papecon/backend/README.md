@@ -52,8 +52,9 @@ For each new feature you add later:
 ### Booking workflow role relation (implemented)
 
 - Client: creates booking request (`/bookings/*`)
-- Customer Service Representative (CSR): handles inquiries and booking appointments (`/booking-management/bookings`)
-- Operations Manager: schedules, assigns, and tracks technician jobs (`/booking-management/bookings`, `/booking-management/bookings/{id}/assign`)
+- Customer Service Representative (CSR): handles inquiries and schedules appointments (`/booking-management/bookings`, `/booking-management/slots`, `/booking-management/bookings/{id}/reschedule`)
+- Operations Manager: schedules, assigns, and tracks technician jobs (`/booking-management/bookings`, `/booking-management/slots`, `/booking-management/bookings/{id}/reschedule`, `/booking-management/bookings/{id}/assign`)
+- Schedule appointment roles: Operations + CSR (`booking.schedule_appointments`)
 - Assignment-capable roles: Operations only (`/booking-management/bookings/{id}/assign`)
 - Technician: receives assigned schedule (`/technician/assignments`), logs initial findings (`/technician/assignments/{id}/findings`), and updates treatment status (`/technician/assignments/{id}/status`)
 - Technician UX behavior: jobs marked `done` are removed from **My Assignments** and remain visible in **Field Report** history
