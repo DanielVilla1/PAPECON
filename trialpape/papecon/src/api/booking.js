@@ -9,4 +9,4 @@ export const createBooking = (payload) => API.post("/bookings", payload);
 
 export const confirmBooking = (bookingId) => API.post(`/bookings/${bookingId}/confirm`);
 
-export const cancelBooking = (bookingId) => API.post(`/bookings/${bookingId}/cancel`);
+export const cancelBooking = (bookingId, payload) => API.post(`/bookings/${bookingId}/cancel`, payload);

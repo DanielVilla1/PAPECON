@@ -4,7 +4,7 @@ from typing import List
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from models import Booking, BookingAssignment, TechnicianFinding, User
+from models import Booking, BookingAssignment, TechnicianFinding, BookingScheduleMeta, User
 
 
 DEFAULT_SLOTS = [
@@ -18,6 +18,7 @@ DEFAULT_SLOTS = [
 
 
 ALLOWED_BOOKING_STATUSES = {"pending", "confirmed", "cancelled"}
+ALLOWED_APPOINTMENT_TYPES = {"inspection", "treatment"}
 
 
 def get_slot_availability(db: Session, service_date: date) -> list[dict]:
@@ -117,6 +118,18 @@ def get_findings_map_for_bookings(db: Session, booking_ids: List[int]) -> dict[i
         .all()
     )
     return {f.booking_id: f for f in findings}
+
+
+def get_appointment_type_map_for_bookings(db: Session, booking_ids: List[int]) -> dict[int, str]:
+    if not booking_ids:
+        return {}
+
+    rows = (
+        db.query(BookingScheduleMeta)
+        .filter(BookingScheduleMeta.booking_id.in_(booking_ids))
+        .all()
+    )
+    return {row.booking_id: row.appointment_type for row in rows}
 
 
 def get_booking_by_id(db: Session, booking_id: int) -> Booking:
@@ -245,8 +258,63 @@ def confirm_booking(db: Session, booking: Booking) -> Booking:
     return booking
 
 
-def cancel_booking(db: Session, booking: Booking) -> Booking:
+def cancel_booking(db: Session, booking: Booking, cancellation_reason: str | None = None) -> Booking:
     booking.status = "cancelled"
+    assignment = db.query(BookingAssignment).filter(BookingAssignment.booking_id == booking.id).first()
+    if assignment:
+        assignment.status = "cancelled"
+    if cancellation_reason:
+        existing_notes = booking.notes or ""
+        reason_line = f"[Cancellation Reason] {cancellation_reason}"
+        if reason_line not in existing_notes:
+            booking.notes = f"{existing_notes}\n{reason_line}".strip()
+    db.commit()
+    db.refresh(booking)
+    return booking
+
+
+def reschedule_booking(
+    db: Session,
+    booking: Booking,
+    service_date: date,
+    slot: str,
+    appointment_type: str,
+) -> Booking:
+    if booking.status == "cancelled":
+        raise HTTPException(status_code=400, detail="Cancelled bookings cannot be rescheduled")
+
+    if slot not in DEFAULT_SLOTS:
+        raise HTTPException(status_code=400, detail="Invalid slot selected")
+
+    if appointment_type not in ALLOWED_APPOINTMENT_TYPES:
+        raise HTTPException(status_code=400, detail="Invalid appointment type")
+
+    conflict = (
+        db.query(Booking)
+        .filter(
+            Booking.id != booking.id,
+            Booking.service_date == service_date,
+            Booking.slot == slot,
+            Booking.status.in_(["pending", "confirmed"]),
+        )
+        .first()
+    )
+    if conflict:
+        raise HTTPException(status_code=409, detail="Slot is no longer available")
+
+    booking.service_date = service_date
+    booking.slot = slot
+
+    schedule_meta = db.query(BookingScheduleMeta).filter(BookingScheduleMeta.booking_id == booking.id).first()
+    if schedule_meta:
+        schedule_meta.appointment_type = appointment_type
+    else:
+        schedule_meta = BookingScheduleMeta(
+            booking_id=booking.id,
+            appointment_type=appointment_type,
+        )
+        db.add(schedule_meta)
+
     db.commit()
     db.refresh(booking)
     return booking

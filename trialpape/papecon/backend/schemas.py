@@ -147,6 +147,47 @@ class BookingCreateRequest(BaseModel):
         return v.strip()
 
 
+class BookingRescheduleRequest(BaseModel):
+    service_date: date
+    slot: str
+    appointment_type: str
+
+    @field_validator("slot")
+    @classmethod
+    def slot_not_blank(cls, v):
+        if not v or not v.strip():
+            raise ValueError("Slot is required")
+        return v.strip()
+
+    @field_validator("appointment_type")
+    @classmethod
+    def appointment_type_allowed(cls, v):
+        allowed = {"inspection", "treatment"}
+        if v not in allowed:
+            raise ValueError(f"Appointment type must be one of: {', '.join(sorted(allowed))}")
+        return v
+
+
+class BookingCancelRequest(BaseModel):
+    reason_code: str
+    reason_details: Optional[str] = None
+
+    @field_validator("reason_code")
+    @classmethod
+    def reason_code_allowed(cls, v):
+        allowed = {
+            "schedule_conflict",
+            "price_concern",
+            "service_no_longer_needed",
+            "booked_by_mistake",
+            "location_unavailable",
+            "other",
+        }
+        if v not in allowed:
+            raise ValueError(f"Reason code must be one of: {', '.join(sorted(allowed))}")
+        return v
+
+
 class BookingOut(BaseModel):
     id: int
     user_id: int
@@ -161,6 +202,7 @@ class BookingOut(BaseModel):
     assigned_technician_name: Optional[str] = None
     assigned_at: Optional[datetime] = None
     assignment_status: Optional[str] = None
+    appointment_type: Optional[str] = None
     initial_findings: Optional[str] = None
     assignment_updated_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
@@ -206,7 +248,7 @@ class TechnicianStatusUpdateRequest(BaseModel):
     @field_validator("status")
     @classmethod
     def status_allowed(cls, v):
-        allowed = {"assigned", "inspection_logged", "treatment_done", "done", "completed"}
+        allowed = {"assigned", "inspection_logged", "treatment_ongoing", "treatment_done", "done", "completed"}
         if v not in allowed:
             raise ValueError(f"Status must be one of: {', '.join(sorted(allowed))}")
         return v

@@ -7,6 +7,15 @@ import { getManagedBookings } from "../../api/bookingManagement";
 import useAuth from "../../hooks/useAuth";
 import { canAccessFeature } from "../../config/rbacMap";
 
+function formatProgress(status) {
+    if (!status) return "Not Started";
+    if (status === "treatment_done" || status === "treatment_ongoing") return "Treatment Ongoing";
+    if (status === "done" || status === "completed") return "Completed";
+    if (status === "inspection_logged") return "Inspection Logged";
+    if (status === "assigned") return "Assigned";
+    return status;
+}
+
 function slotToStartEnd(serviceDate, slot) {
     const [startTime, endTime] = (slot || "09:00-10:00").split("-");
     return {
@@ -126,8 +135,10 @@ export default function ServiceRoutesPage() {
                                 <p className="text-gray-600 text-sm">Technician: {booking.assigned_technician_name || "Unassigned"}</p>
                                 <p className="text-gray-600 text-sm">Address: {booking.address}</p>
                                 <p className="text-gray-600 text-sm">Service: {booking.pest_type} · {booking.property_type}</p>
+                                <p className="text-gray-600 text-sm">Appointment Type: {booking.appointment_type || "inspection"}</p>
                                 <p className="text-gray-600 text-sm">Booking Status: {booking.status}</p>
-                                <p className="text-gray-600 text-sm">Job Progress: {booking.assignment_status || "Not started"}</p>
+                                <p className="text-gray-600 text-sm">Job Progress: {formatProgress(booking.assignment_status)}</p>
+                                {booking.initial_findings && <p className="text-gray-600 text-sm">Inspection Findings: {booking.initial_findings}</p>}
                             </div>
                         ))}
                     </div>

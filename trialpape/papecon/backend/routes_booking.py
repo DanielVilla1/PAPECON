@@ -13,12 +13,14 @@ from controller_booking import (
     cancel_booking,
     get_assignment_map_for_bookings,
     get_findings_map_for_bookings,
+    get_appointment_type_map_for_bookings,
 )
 from database import get_db
 from models import User
 from schemas import (
     SlotAvailabilityResponse,
     BookingCreateRequest,
+    BookingCancelRequest,
     BookingOut,
     BookingListResponse,
 )
@@ -26,7 +28,8 @@ from schemas import (
 router = APIRouter(prefix="/bookings", tags=["bookings"])
 
 
-def _to_booking_out(booking, assignment=None, finding=None, technician_name=None):
+def _to_booking_out(booking, assignment=None, finding=None, technician_name=None, appointment_type=None):
+    assignment_status = "cancelled" if booking.status == "cancelled" else (assignment.status if assignment else None)
     return BookingOut(
         id=booking.id,
         user_id=booking.user_id,
@@ -40,7 +43,8 @@ def _to_booking_out(booking, assignment=None, finding=None, technician_name=None
         assigned_technician_user_id=assignment.technician_user_id if assignment else None,
         assigned_technician_name=technician_name,
         assigned_at=assignment.assigned_at if assignment else None,
-        assignment_status=assignment.status if assignment else None,
+        assignment_status=assignment_status,
+        appointment_type=appointment_type,
         initial_findings=finding.findings if finding else None,
         assignment_updated_at=finding.updated_at if finding else None,
         created_at=booking.created_at,
@@ -65,6 +69,7 @@ def my_bookings(
     bookings = list_user_bookings(db, current_user.id)
     assignment_map = get_assignment_map_for_bookings(db, [b.id for b in bookings])
     finding_map = get_findings_map_for_bookings(db, [b.id for b in bookings])
+    appointment_type_map = get_appointment_type_map_for_bookings(db, [b.id for b in bookings])
 
     technician_ids = {
         assignment.technician_user_id
@@ -80,8 +85,9 @@ def my_bookings(
     for booking in bookings:
         assignment = assignment_map.get(booking.id)
         finding = finding_map.get(booking.id)
+        appointment_type = appointment_type_map.get(booking.id, "inspection")
         technician_name = technicians.get(assignment.technician_user_id) if assignment else None
-        payload.append(_to_booking_out(booking, assignment, finding, technician_name))
+        payload.append(_to_booking_out(booking, assignment, finding, technician_name, appointment_type))
 
     return {"bookings": payload, "total": len(payload)}
 
@@ -102,7 +108,7 @@ def create_booking_route(
         address=body.address,
         notes=body.notes,
     )
-    return _to_booking_out(booking)
+    return _to_booking_out(booking, appointment_type="inspection")
 
 
 @router.post("/{booking_id}/confirm", response_model=BookingOut)
@@ -115,25 +121,39 @@ def confirm_booking_route(
     booking = confirm_booking(db, booking)
     assignment = get_assignment_map_for_bookings(db, [booking.id]).get(booking.id)
     finding = get_findings_map_for_bookings(db, [booking.id]).get(booking.id)
+    appointment_type = get_appointment_type_map_for_bookings(db, [booking.id]).get(booking.id, "inspection")
     tech_name = None
     if assignment:
         technician = db.query(User).filter(User.id == assignment.technician_user_id).first()
         tech_name = technician.name if technician else None
-    return _to_booking_out(booking, assignment, finding, tech_name)
+    return _to_booking_out(booking, assignment, finding, tech_name, appointment_type)
 
 
 @router.post("/{booking_id}/cancel", response_model=BookingOut)
 def cancel_booking_route(
     booking_id: int,
+    body: BookingCancelRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_feature("booking.client_self_service")),
 ):
     booking = get_booking_for_user(db, booking_id, current_user.id)
-    booking = cancel_booking(db, booking)
+    reason_label_map = {
+        "schedule_conflict": "Schedule conflict",
+        "price_concern": "Price concern",
+        "service_no_longer_needed": "Service no longer needed",
+        "booked_by_mistake": "Booked by mistake",
+        "location_unavailable": "Location unavailable",
+        "other": "Other",
+    }
+    reason_text = reason_label_map.get(body.reason_code, body.reason_code)
+    if body.reason_details:
+        reason_text = f"{reason_text} - {body.reason_details.strip()}"
+    booking = cancel_booking(db, booking, reason_text)
     assignment = get_assignment_map_for_bookings(db, [booking.id]).get(booking.id)
     finding = get_findings_map_for_bookings(db, [booking.id]).get(booking.id)
+    appointment_type = get_appointment_type_map_for_bookings(db, [booking.id]).get(booking.id, "inspection")
     tech_name = None
     if assignment:
         technician = db.query(User).filter(User.id == assignment.technician_user_id).first()
         tech_name = technician.name if technician else None
-    return _to_booking_out(booking, assignment, finding, tech_name)
+    return _to_booking_out(booking, assignment, finding, tech_name, appointment_type)

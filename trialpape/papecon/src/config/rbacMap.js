@@ -40,6 +40,7 @@ export const FEATURE_RBAC = {
 
   "booking.client_self_service": ["client"],
   "booking.management": ["operations", "csr"],
+  "booking.schedule_appointments": ["operations", "csr"],
   "booking.assign_technician": ["operations"],
   "booking.technician_portal": ["technician"],
 };
