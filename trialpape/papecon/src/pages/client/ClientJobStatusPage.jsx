@@ -100,30 +100,30 @@ export default function ClientJobStatusPage() {
     return (
         <div className="space-y-0">
             {/* ── Page Hero Banner ──────────────────────── */}
-            <section className="relative bg-primary text-white overflow-hidden pb-12">
-                <div className="max-w-7xl mx-auto px-6 py-14 flex justify-between items-center gap-4">
+            <section className="relative bg-primary pb-12 overflow-hidden text-white">
+                <div className="flex justify-between items-center gap-4 mx-auto px-6 py-14 max-w-7xl">
                     <div>
-                        <h1 className="text-3xl md:text-4xl font-extrabold leading-tight">Job Status</h1>
-                        <p className="mt-2 text-white/70 text-lg max-w-xl">
+                        <h1 className="font-extrabold text-3xl md:text-4xl leading-tight">Job Status</h1>
+                        <p className="mt-2 max-w-xl text-white/70 text-lg">
                             Track your assigned technician progress from assignment to completion.
                         </p>
                     </div>
                     <button
                         type="button"
                         onClick={fetchJobs}
-                        className="bg-accent hover:bg-accent-light px-5 py-2 rounded-lg font-semibold text-white transition shrink-0"
+                        className="bg-accent px-5 py-2 rounded-lg font-semibold text-white transition hover:bg-accent-light shrink-0"
                     >
                         Refresh
                     </button>
                 </div>
-                <div className="absolute bottom-0 left-0 w-full leading-none">
+                <div className="bottom-0 left-0 absolute w-full leading-none">
                     <svg viewBox="0 0 1440 200" className="w-full h-auto" preserveAspectRatio="none">
                         <path d="M0,100 C360,200 1080,0 1440,100 L1440,200 L0,200 Z" fill="#F8F9FA" />
                     </svg>
                 </div>
             </section>
 
-            <div className="max-w-6xl mx-auto px-6 py-10 space-y-6">
+            <div className="space-y-6 mx-auto px-6 py-10 max-w-6xl">
                 {error && <div className="bg-red-50 p-3 border border-red-200 rounded-lg text-red-700 text-sm">{error}</div>}
 
                 <section className="bg-white shadow-md p-6 rounded-xl">
@@ -134,7 +134,7 @@ export default function ClientJobStatusPage() {
                     ) : (
                         <div className="space-y-4">
                             {orderedJobs.map((job) => (
-                                <div key={job.id} className="p-4 border border-gray-200 rounded-xl hover:shadow transition">
+                                <div key={job.id} className="hover:shadow p-4 border border-gray-200 rounded-xl transition">
                                     <div className="flex flex-wrap justify-between items-center gap-2">
                                         <p className="font-semibold text-primary">
                                             {job.service_date} · {job.slot}
@@ -145,30 +145,31 @@ export default function ClientJobStatusPage() {
                                         </div>
                                     </div>
 
-                                <p className="mt-1 text-gray-600 text-sm">Location: {job.address}</p>
-                                <p className="text-gray-600 text-sm">Service: {job.pest_type} · {job.property_type}</p>
-                                <p className="text-gray-600 text-sm">Appointment Type: {job.appointment_type || "inspection"}</p>
-                                <p className="mt-1 text-gray-600 text-sm">
-                                    Assigned Technician: {job.assigned_technician_name || "Waiting for assignment"}
-                                </p>
+                                    <p className="mt-1 text-gray-600 text-sm">Location: {job.address}</p>
+                                    <p className="text-gray-600 text-sm">Service: {job.pest_type} · {job.property_type}</p>
+                                    <p className="text-gray-600 text-sm">Appointment Type: {job.appointment_type || "inspection"}</p>
+                                    <p className="mt-1 text-gray-600 text-sm">
+                                        Assigned Technician: {job.assigned_technician_name || "Waiting for assignment"}
+                                    </p>
 
-                                {job.assignment_status ? (
-                                    <ProgressBar status={normalizeStatus(job.assignment_status)} />
-                                ) : (
-                                    <p className="mt-2 text-gray-500 text-xs">Progress tracking starts once your booking is assigned.</p>
-                                )}
+                                    {job.assignment_status ? (
+                                        <ProgressBar status={normalizeStatus(job.assignment_status)} />
+                                    ) : (
+                                        <p className="mt-2 text-gray-500 text-xs">Progress tracking starts once your booking is assigned.</p>
+                                    )}
 
-                                {job.initial_findings && (
-                                    <div className="bg-gray-50 mt-3 p-3 border border-gray-200 rounded">
-                                        <p className="mb-1 font-semibold text-gray-700 text-xs">Initial Field Findings</p>
-                                        <p className="text-gray-700 text-sm">{job.initial_findings}</p>
-                                    </div>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </section>
+                                    {job.initial_findings && (
+                                        <div className="bg-gray-50 mt-3 p-3 border border-gray-200 rounded">
+                                            <p className="mb-1 font-semibold text-gray-700 text-xs">Initial Field Findings</p>
+                                            <p className="text-gray-700 text-sm">{job.initial_findings}</p>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </section>
+            </div>
         </div>
     );
 }
