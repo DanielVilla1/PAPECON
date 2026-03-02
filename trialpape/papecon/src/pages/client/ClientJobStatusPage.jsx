@@ -170,7 +170,6 @@ export default function ClientJobStatusPage() {
                     )}
                 </section>
             </div>
-            );
         </div>
     )
 }
