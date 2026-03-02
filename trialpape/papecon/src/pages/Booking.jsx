@@ -378,12 +378,12 @@ export default function BookingPage({ view = "all" }) {
 
     return (
         <div className="space-y-0">
-            <section className="relative bg-primary text-white overflow-hidden pb-12">
-                <div className="max-w-7xl mx-auto px-6 py-14">
-                    <h1 className="text-3xl md:text-4xl font-extrabold leading-tight">
+            <section className="relative bg-primary pb-12 overflow-hidden text-white">
+                <div className="mx-auto px-6 py-14 max-w-7xl">
+                    <h1 className="font-extrabold text-3xl md:text-4xl leading-tight">
                         {view === "new" ? "New Booking" : view === "my" ? "My Bookings" : "Booking"}
                     </h1>
-                    <p className="mt-2 text-white/70 text-lg max-w-xl">
+                    <p className="mt-2 max-w-xl text-white/70 text-lg">
                         {view === "new"
                             ? "Check slot availability and create a new booking request."
                             : view === "my"
@@ -391,19 +391,19 @@ export default function BookingPage({ view = "all" }) {
                                 : "Check available slots, create bookings, and confirm or cancel requests."}
                     </p>
                 </div>
-                <div className="absolute bottom-0 left-0 w-full leading-none">
+                <div className="bottom-0 left-0 absolute w-full leading-none">
                     <svg viewBox="0 0 1440 200" className="w-full h-auto" preserveAspectRatio="none">
                         <path d="M0,100 C360,200 1080,0 1440,100 L1440,200 L0,200 Z" fill="#F8F9FA" />
                     </svg>
                 </div>
             </section>
 
-            <div className="max-w-6xl mx-auto px-6 py-10 space-y-6">
+            <div className="space-y-6 mx-auto px-6 py-10 max-w-6xl">
                 {error && <div className="bg-red-50 p-3 border border-red-200 rounded-lg text-red-700 text-sm">{error}</div>}
                 {success && <div className="bg-green-50 p-3 border border-green-200 rounded-lg text-green-700 text-sm">{success}</div>}
 
                 {serviceUnavailable && (
-                    <section className="bg-white shadow-md p-6 border-l-4 border-warning rounded-lg">
+                    <section className="bg-white shadow-md p-6 border-warning border-l-4 rounded-lg">
                         <h2 className="mb-1 font-semibold text-primary text-lg">Booking Service Unavailable</h2>
                         <p className="mb-3 text-gray-600 text-sm">
                             The booking API endpoint is not reachable right now. Please retry after backend refresh.
@@ -414,7 +414,7 @@ export default function BookingPage({ view = "all" }) {
                                 if (showNewBooking) loadSlots();
                                 if (showMyBookings) loadBookings();
                             }}
-                            className="bg-accent hover:bg-accent-light px-5 py-2 rounded-lg font-semibold text-white transition"
+                            className="bg-accent px-5 py-2 rounded-lg font-semibold text-white transition hover:bg-accent-light"
                         >
                             Retry
                         </button>
@@ -452,11 +452,10 @@ export default function BookingPage({ view = "all" }) {
                                             type="button"
                                             disabled={!slotItem.available}
                                             onClick={() => handleSlotClick(slotItem)}
-                                            className={`border rounded-xl p-4 text-left transition ${
-                                                slotItem.available
-                                                    ? "border-accent/40 bg-accent/5 hover:bg-accent/10 hover:shadow"
-                                                    : "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
-                                            }`}
+                                            className={`border rounded-xl p-4 text-left transition ${slotItem.available
+                                                ? "border-accent/40 bg-accent/5 hover:bg-accent/10 hover:shadow"
+                                                : "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
+                                                }`}
                                         >
                                             <p className="font-semibold text-primary">{slotItem.slot}</p>
                                             <p className="mt-1 text-xs">{slotItem.available ? "Available" : "Unavailable"}</p>
@@ -514,7 +513,7 @@ export default function BookingPage({ view = "all" }) {
                                                             <button
                                                                 type="button"
                                                                 onClick={() => handleConfirm(booking.id)}
-                                                                className="bg-accent hover:bg-accent-light px-4 py-2 rounded-lg text-white text-sm font-semibold transition"
+                                                                className="bg-accent px-4 py-2 rounded-lg font-semibold text-white text-sm transition hover:bg-accent-light"
                                                             >
                                                                 Confirm
                                                             </button>
@@ -536,8 +535,8 @@ export default function BookingPage({ view = "all" }) {
                                 </div>
 
                                 <div>
-                                    <h3 className="mb-3 font-semibold text-primary text-base flex items-center gap-2">
-                                        <span className="w-2 h-2 rounded-full bg-gray-400 inline-block" />
+                                    <h3 className="flex items-center gap-2 mb-3 font-semibold text-primary text-base">
+                                        <span className="inline-block bg-gray-400 rounded-full w-2 h-2" />
                                         Booking History
                                     </h3>
                                     {historyBookings.length === 0 ? (
