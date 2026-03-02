@@ -23,7 +23,7 @@ export default function RoleLayout({ role, title, bgSidebar = "bg-primary" }) {
   return (
     <div className="flex min-h-screen bg-neutral-50">
       {/* Sidebar */}
-      <aside className={`w-64 ${bgSidebar} text-white flex flex-col`}>
+      <aside className={`w-64 ${bgSidebar} text-white flex flex-col fixed top-0 left-0 h-screen overflow-y-auto z-40`}>
         <div className="p-4 text-xl font-bold border-b border-white/20">
           {title}
         </div>
@@ -56,7 +56,7 @@ export default function RoleLayout({ role, title, bgSidebar = "bg-primary" }) {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 p-6 overflow-auto">
+      <main className="flex-1 p-6 overflow-auto ml-64">
         <Outlet />
       </main>
     </div>
