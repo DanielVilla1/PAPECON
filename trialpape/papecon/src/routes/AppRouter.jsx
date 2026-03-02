@@ -14,6 +14,7 @@ import ClientLayout from "../layouts/ClientLayout";
 import DeveloperLayout from "../layouts/DeveloperLayout";
 
 // Public pages
+import LandingPage from "../pages/LandingPage";
 import LoginPage from "../pages/auth/LoginPage";
 import RegisterPage from "../pages/auth/RegisterPage";
 import VerifyEmailPage from "../pages/auth/VerifyEmailPage";
@@ -84,6 +85,7 @@ export default function AppRouter() {
       <AuthProvider>
         <Routes>
           {/* ── Public routes ─────────────────────────── */}
+          <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
@@ -185,9 +187,8 @@ export default function AppRouter() {
             </Route>
           </Route>
 
-          {/* ── Fallbacks ─────────────────────────────── */}
-          <Route path="/" element={<Navigate to="/login" replace />} />
-          <Route path="*" element={<Navigate to="/login" replace />} />
+          {/* ── Fallback ──────────────────────────────── */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>

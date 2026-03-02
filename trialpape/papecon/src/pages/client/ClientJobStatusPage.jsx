@@ -98,41 +98,52 @@ export default function ClientJobStatusPage() {
     );
 
     return (
-        <div className="space-y-6">
-            <div className="flex justify-between items-center gap-3">
-                <div>
-                    <h1 className="mb-1 font-bold text-neutral-900 text-2xl">Job Status</h1>
-                    <p className="text-gray-600">Track your assigned technician progress from assignment to completion.</p>
+        <div className="space-y-0">
+            {/* ── Page Hero Banner ──────────────────────── */}
+            <section className="relative bg-primary text-white overflow-hidden pb-12">
+                <div className="max-w-7xl mx-auto px-6 py-14 flex justify-between items-center gap-4">
+                    <div>
+                        <h1 className="text-3xl md:text-4xl font-extrabold leading-tight">Job Status</h1>
+                        <p className="mt-2 text-white/70 text-lg max-w-xl">
+                            Track your assigned technician progress from assignment to completion.
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={fetchJobs}
+                        className="bg-accent hover:bg-accent-light px-5 py-2 rounded-lg font-semibold text-white transition shrink-0"
+                    >
+                        Refresh
+                    </button>
                 </div>
-                <button
-                    type="button"
-                    onClick={fetchJobs}
-                    className="bg-primary hover:bg-primary/90 px-4 py-2 rounded font-medium text-white"
-                >
-                    Refresh
-                </button>
-            </div>
+                <div className="absolute bottom-0 left-0 w-full leading-none">
+                    <svg viewBox="0 0 1440 200" className="w-full h-auto" preserveAspectRatio="none">
+                        <path d="M0,100 C360,200 1080,0 1440,100 L1440,200 L0,200 Z" fill="#F8F9FA" />
+                    </svg>
+                </div>
+            </section>
 
-            {error && <div className="bg-red-50 p-3 border border-red-200 rounded text-red-700 text-sm">{error}</div>}
+            <div className="max-w-6xl mx-auto px-6 py-10 space-y-6">
+                {error && <div className="bg-red-50 p-3 border border-red-200 rounded-lg text-red-700 text-sm">{error}</div>}
 
-            <section className="bg-white shadow p-5 rounded-lg">
-                {loading ? (
-                    <p className="text-gray-500">Loading job status...</p>
-                ) : orderedJobs.length === 0 ? (
-                    <p className="text-gray-500">No bookings yet. Create a booking to start tracking progress.</p>
-                ) : (
-                    <div className="space-y-4">
-                        {orderedJobs.map((job) => (
-                            <div key={job.id} className="p-4 border border-gray-200 rounded">
-                                <div className="flex flex-wrap justify-between items-center gap-2">
-                                    <p className="font-semibold text-neutral-900">
-                                        {job.service_date} · {job.slot}
-                                    </p>
-                                    <div className="flex gap-2">
-                                        <StatusBadge status={job.status} />
-                                        {job.assignment_status && <StatusBadge status={job.assignment_status} />}
+                <section className="bg-white shadow-md p-6 rounded-xl">
+                    {loading ? (
+                        <p className="text-gray-500">Loading job status...</p>
+                    ) : orderedJobs.length === 0 ? (
+                        <p className="text-gray-500">No bookings yet. Create a booking to start tracking progress.</p>
+                    ) : (
+                        <div className="space-y-4">
+                            {orderedJobs.map((job) => (
+                                <div key={job.id} className="p-4 border border-gray-200 rounded-xl hover:shadow transition">
+                                    <div className="flex flex-wrap justify-between items-center gap-2">
+                                        <p className="font-semibold text-primary">
+                                            {job.service_date} · {job.slot}
+                                        </p>
+                                        <div className="flex gap-2">
+                                            <StatusBadge status={job.status} />
+                                            {job.assignment_status && <StatusBadge status={job.assignment_status} />}
+                                        </div>
                                     </div>
-                                </div>
 
                                 <p className="mt-1 text-gray-600 text-sm">Location: {job.address}</p>
                                 <p className="text-gray-600 text-sm">Service: {job.pest_type} · {job.property_type}</p>
